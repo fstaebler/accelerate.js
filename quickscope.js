@@ -11,7 +11,7 @@ var squareSize;
 
 var camera = {};
 var updateCamera = function (position, target) {
-  camera.position = [0.0, 2.5, -20.0];
+  camera.position = [0.0, 3.85, -15.0];
   camera.up = [0.0, window.innerHeight / squareSize, 0.0];
   camera.right = [window.innerWidth / squareSize, 0.0, 0.0];
   camera.forward = [0.0, 0.0, 1.0];
@@ -75,8 +75,8 @@ var compileShaderPrograms = function () {
 var VertexPositionBuffer;
 
 function initBuffers() {
-  VertexPositionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+  dummyBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
   vertices = [
              1.0, 1.0, 0.0,
             -1.0, 1.0, 0.0,
@@ -84,8 +84,6 @@ function initBuffers() {
             -1.0, -1.0, 0.0
         ];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-  VertexPositionBuffer.itemSize = 3;
-  VertexPositionBuffer.numItems = 4;
 }
 
 
@@ -98,7 +96,7 @@ function drawScene() {
   gl.uniform3fv(camera.upAdress, camera.up);
   gl.uniform3fv(camera.positionAdress, camera.position);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+  gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
   gl.vertexAttribPointer(testProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }

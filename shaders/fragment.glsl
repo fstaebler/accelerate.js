@@ -8,9 +8,12 @@ uniform vec3 cameraForward;
 varying vec2 vUv;
 
 const int iterations = 256;
+
+const int ambientSamples = 256;
+
 const float epsilon = 0.0001;
 
-vec3 sunDirection = normalize(vec3(-.1, 1.0, -2.));
+vec3 sunDirection = normalize(vec3(-3., 1.0, -2.));
 
 const vec3 sphereCenter = vec3(0.0, 0.0, 0.0);
 const float sphereRadius = 2.0;
@@ -56,7 +59,7 @@ void main() {
         DE(currentPosition + yAxis) - DE(currentPosition - yAxis),
         DE(currentPosition + zAxis) - DE(currentPosition - zAxis)
         ));
-      color = vec3(0.2, 0.6, 1.0) * asin(dot(normal, sunDirection));
+      color = vec3(0.2, 0.6, 1.0) * dot(normal, sunDirection);
       hit = true;
       break;
     }
@@ -75,8 +78,23 @@ void main() {
       }
       currentPosition = nextPosition;
     }
+    vec3 ambientColor = vec3(0.5);
     currentPosition = castPosition;
     currentDistance = DE(currentPosition);
+    //for (int j = 0; j < ambientSamples; j++){
+      for (int i = 0; i < ambientSamples; i++){
+        vec3 nextPosition = currentPosition + normal * currentDistance;
+        currentDistance = DE(nextPosition);
+        if (currentDistance < epsilon) {
+          ambientColor = ambientColor * min(.01 * distance(currentPosition, castPosition), 1.0);
+          break;
+        }
+        currentPosition = nextPosition;
+      }
+      color = ambientColor;
+
+    //}
   }
+
   gl_FragColor = vec4(color, 1.0);
 }
