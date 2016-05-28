@@ -221,7 +221,7 @@ function webGLStart() {
 	initBuffers();
 
 	gl.clearColor(.5, 0.0, 0.0, 1.0);
-	setTimeout(restart, 60000);
+	setInterval(restart, 60000);
 	drawScene();
 }
 
@@ -257,4 +257,5 @@ var restart = function () {
 	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
 	gl.bindTexture(gl.TEXTURE_2D, pp2);
 	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
+	console.log("Reset.");
 }
