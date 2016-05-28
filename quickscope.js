@@ -17,7 +17,7 @@ var ppw = pph = 1024;
 var ppfb;
 var ppdb;
 
-var zoom = 4;
+var zoom = 3;
 var deltax = 0.5;
 var deltay = 0.5;
 
@@ -221,7 +221,7 @@ function webGLStart() {
 	initBuffers();
 
 	gl.clearColor(.5, 0.0, 0.0, 1.0);
-
+	setTimeout(restart, 60000);
 	drawScene();
 }
 
@@ -252,3 +252,9 @@ window.onmousemove = function (e) {
 	lastx = e.clientX;
 	lasty = e.clientY;
 };
+var restart = function () {
+	gl.bindTexture(gl.TEXTURE_2D, pp1);
+	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
+	gl.bindTexture(gl.TEXTURE_2D, pp2);
+	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
+}
