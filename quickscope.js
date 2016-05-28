@@ -57,10 +57,10 @@ var compileShader = function (source, fragment) {
 var pingpongProgram;
 var postproc;
 var compileShaderPrograms = function () {
-	var vsss = SyncHttpGet("./shaders/vertex.glsl");
-	var fragmentShader = compileShader(SyncHttpGet("./shaders/fragment.glsl"), !!1);
-	var fragmentShader2 = compileShader(SyncHttpGet("./shaders/display.glsl"), !!1);
-	var fragmentShader3 = compileShader(SyncHttpGet("./shaders/postfx.glsl"), !!1);
+	var vsss = SyncHttpGet("shaders/vertex.glsl");
+	var fragmentShader = compileShader(SyncHttpGet("shaders/fragment.glsl"), !!1);
+	var fragmentShader2 = compileShader(SyncHttpGet("shaders/display.glsl"), !!1);
+	var fragmentShader3 = compileShader(SyncHttpGet("shaders/postfx.glsl"), !!1);
 	var vertexShader = compileShader(vsss, !!0);
 	var vertexShader2 = compileShader(vsss, !!0);
 	var vertexShader3 = compileShader(vsss, !!0);
