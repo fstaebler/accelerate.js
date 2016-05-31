@@ -17,8 +17,11 @@ var ppw = pph = 1024;
 var ppfb;
 var ppdb;
 
+var zoomtarget = 3;
 var zoom = 3;
+var deltaxtarget = 0.5;
 var deltax = 0.5;
+var deltaytarget = 0.5;
 var deltay = 0.5;
 
 var postfxtex;
@@ -166,8 +169,12 @@ function initBuffers() {
 	gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
+var mixf = 0.2;
 
 function drawScene() {
+	zoom = mixf * zoomtarget + (1 - mixf) * zoom;
+	deltax = mixf * deltaxtarget + (1 - mixf) * deltax;
+	deltay = mixf * deltaytarget + (1 - mixf) * deltay;
 	aspect = window.innerWidth / window.innerHeight;
 	//setTimeout(drawScene, 0);
 	requestAnimationFrame(drawScene);
@@ -239,15 +246,15 @@ var resize = function () {
 window.onresize = resize;
 
 window.onwheel = function (e) {
-	zoom += (e.deltaY * .01);
-	zoom = Math.max(0.8, zoom);
+	zoomtarget += (e.deltaY * .01);
+	zoomtarget = Math.min(Math.max(0.8, zoomtarget), 20);
 };
 var lastx = 0;
 var lasty = 0;
 window.onmousemove = function (e) {
 	if (e.buttons & 1) {
-		deltax += (lastx - e.clientX) / window.innerWidth / zoom;
-		deltay -= (lasty - e.clientY) / window.innerHeight / zoom;
+		deltaxtarget += (lastx - e.clientX) / window.innerWidth / zoom;
+		deltaytarget -= (lasty - e.clientY) / window.innerHeight / zoom;
 	}
 	lastx = e.clientX;
 	lasty = e.clientY;
