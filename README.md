@@ -1,5 +1,3 @@
-# accelerate.js
+# quickscope.js
 
-...
-
-Alle Rechte liegen beim Urheber, Flemming Stäbler. Der Code ist zum angucken, nicht anfassen.
+A Game Of Life, coulourful and 100% on your GPU.
