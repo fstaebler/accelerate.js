@@ -39,37 +39,41 @@ void main() {
 		j += 1.0;
 		totalRs += sin(neighbours[1].r * tau);
 		totalRc += cos(neighbours[1].r * tau);
-	}	if(isAlive(neighbours[2])){
+	}	
+	if(isAlive(neighbours[2])){
 		j += 1.0;
 		totalRs += sin(neighbours[2].r * tau);
 		totalRc += cos(neighbours[2].r * tau);
-	}	if(isAlive(neighbours[3])){
+	}	
+	if(isAlive(neighbours[3])){
 		j += 1.0;
 		totalRs += sin(neighbours[3].r * tau);
 		totalRc += cos(neighbours[3].r * tau);
-	}	if(isAlive(neighbours[4])){
+	}	
+	if(isAlive(neighbours[4])){
 		j += 1.0;
 		totalRs += sin(neighbours[4].r * tau);
 		totalRc += cos(neighbours[4].r * tau);
-	}	if(isAlive(neighbours[5])){
+	}	
+	if(isAlive(neighbours[5])){
 		j += 1.0;
 		totalRs += sin(neighbours[5].r * tau);
 		totalRc += cos(neighbours[5].r * tau);
-	}	if(isAlive(neighbours[6])){
+	}	
+	if(isAlive(neighbours[6])){
 		j += 1.0;
 		totalRs += sin(neighbours[6].r * tau);
 		totalRc += cos(neighbours[6].r * tau);
-	}	if(isAlive(neighbours[7])){
+	}	
+	if(isAlive(neighbours[7])){
 		j += 1.0;
 		totalRs += sin(neighbours[7].r * tau);
 		totalRc += cos(neighbours[7].r * tau);
 	}
 	bool IMAlive = isAlive(me);
-	//gl_FragColor = vec4(aliveNeighbours * .125);
 	if (
 		(j >= 2. && j <= 3. && IMAlive) || 
 		(!IMAlive && j == 3.)){
-	//if (isAlive(vUv)){
 		if(IMAlive){
 			j += 1.0;
 			totalRs += sin(me.r * tau);
