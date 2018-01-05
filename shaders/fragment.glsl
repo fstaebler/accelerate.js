@@ -8,10 +8,10 @@ uniform float w;
 uniform float h;
 
 bool isAlive(vec3 c) {
-	return (c.g > 0.4);
+	return (c.g > 0.3);
 }
 
-const float tau =6.283185307179586;
+const float tau = 6.283185307179586;
 
 void main() {
 

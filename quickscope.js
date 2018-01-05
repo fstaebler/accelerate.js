@@ -1,6 +1,6 @@
 var SyncHttpGet = function (path) {
 	var r = new XMLHttpRequest();
-	r.open("GET", path, !!0); //prevent caching.
+	r.open("GET", path+"?r="+Math.random(), !!0); //prevent caching.
 	r.send();
 	var b = r.responseText;
 	return b;
@@ -12,15 +12,16 @@ var gl;
 var ppt1;
 var ppt2;
 var pps = false;
+var irfs = false;
 var pph;
 var ppw = pph = 1024;
 var ppfb;
 var ppdb;
 
-var zoomtarget = 3;
-var zoom = 3;
-var deltaxtarget = 0.5;
-var deltax = 0.5;
+var zoomtarget = 12;
+var zoom = 10;
+var deltaxtarget = 0.25;
+var deltax = 0.25;
 var deltaytarget = 0.5;
 var deltay = 0.5;
 
@@ -64,28 +65,35 @@ var compileShaderPrograms = function () {
 	var fragmentShader = compileShader(SyncHttpGet("shaders/fragment.glsl"), !!1);
 	var fragmentShader2 = compileShader(SyncHttpGet("shaders/display.glsl"), !!1);
 	var fragmentShader3 = compileShader(SyncHttpGet("shaders/postfx.glsl"), !!1);
+	var irfshader = compileShader(SyncHttpGet("shaders/irf.glsl"), !!1);
 	var vertexShader = compileShader(vsss, !!0);
-	var vertexShader2 = compileShader(vsss, !!0);
-	var vertexShader3 = compileShader(vsss, !!0);
 
 	pingpongProgram = gl.createProgram();
 	testProgram2 = gl.createProgram();
 	postproc = gl.createProgram();
+	irfprog = gl.createProgram();
+	gl.attachShader(irfprog, vertexShader);
+	gl.attachShader(irfprog, irfshader);
 	gl.attachShader(pingpongProgram, vertexShader);
-	gl.attachShader(testProgram2, vertexShader2);
-	gl.attachShader(postproc, vertexShader3);
+	gl.attachShader(testProgram2, vertexShader);
+	gl.attachShader(postproc, vertexShader);
 	gl.attachShader(pingpongProgram, fragmentShader);
 	gl.attachShader(testProgram2, fragmentShader2);
 	gl.attachShader(postproc, fragmentShader3);
 	gl.linkProgram(pingpongProgram);
 	gl.linkProgram(testProgram2);
 	gl.linkProgram(postproc);
+  gl.linkProgram(irfprog);
 
 	if (!gl.getProgramParameter(pingpongProgram, gl.LINK_STATUS)) {
 		console.error("failed.");
 	}
 
 	gl.useProgram(pingpongProgram);
+	irfprog.inTexLast = gl.getUniformLocation(irfprog, "inTexLast");
+	irfprog.inTexCurrent = gl.getUniformLocation(irfprog, "inTexCurrent");
+  irfprog.a = gl.getUniformLocation(irfprog, "a");
+  irfprog.ar = gl.getUniformLocation(irfprog, "ar");
 	pingpongProgram.vertexPositionAttribute = gl.getAttribLocation(pingpongProgram, "pos");
 	gl.enableVertexAttribArray(pingpongProgram.vertexPositionAttribute);
 	pingpongProgram.inTex = gl.getUniformLocation(pingpongProgram, "inTex");
@@ -111,12 +119,19 @@ function initBuffers() {
 
 
 	tb = new Uint8Array(ppw * pph * 4);
-	for (var i = 0; i < tb.length; i += 4) {
-		tb[i] = Math.random() * 255;
-		tb[i + 1] = Math.random() * 255;
-		tb[i + 2] = Math.random() * 0;
-		tb[i + 3] = 255;
-	}
+	
+	fill = () => {
+	  for(var y = (pph - 32) / 2; y < (pph - 32) / 2 + 32; y += 1){
+	    for (var x = (ppw - 32) / 2; x < (ppw - 32) / 2 + 32; x += 1) {
+	      var i = (y * ppw + x) * 4;
+		    tb[i] = Math.random() * 255;
+		    tb[i + 1] = Math.random() * 255;
+		    tb[i + 2] = Math.random() * 0;
+		    tb[i + 3] = 255;
+	    }
+	  }
+	};
+	fill();
 
 	postfxtex = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, postfxtex);
@@ -137,7 +152,6 @@ function initBuffers() {
 	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, postfxtex, 0);
 	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, postfxrb);
 
-
 	pp1 = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, pp1);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -155,11 +169,33 @@ function initBuffers() {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
-
+	
+	irf1 = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, irf1);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	
+	irf2 = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, irf2);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	
 	ppdb = gl.createRenderbuffer();
 	gl.bindRenderbuffer(gl.RENDERBUFFER, ppdb);
 	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, ppw, pph);
 
+  irffb = gl.createFramebuffer();
+	gl.bindFramebuffer(gl.FRAMEBUFFER, irffb);
+	gl.bindTexture(gl.TEXTURE_2D, irfs ? irf1 : irf2);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, (irfs ? irf1 : irf2), 0);
+	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, ppdb);
+	gl.bindTexture(gl.TEXTURE_2D, null);
 
 	ppfb = gl.createFramebuffer();
 	gl.bindFramebuffer(gl.FRAMEBUFFER, ppfb);
@@ -194,6 +230,8 @@ function drawScene() {
 	gl.vertexAttribPointer(pingpongProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER THE PINGPONG
 	/*Done Ping-Pong'ing*/
+	
+	
 	gl.useProgram(testProgram2);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, postfxfb);
 	gl.activeTexture(gl.TEXTURE0);
@@ -206,11 +244,32 @@ function drawScene() {
 	gl.viewport(0, 0, ppw, pph);
 	gl.vertexAttribPointer(pingpongProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER THE RESULT
+	
+	//render ir filter
+	
+	gl.useProgram(irfprog);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, irffb);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, (irfs ? irf1 : irf2), 0);
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, irfs ? irf2 : irf1);
+	gl.uniform1i(irfprog.inTexLast, 0);
+	gl.activeTexture(gl.TEXTURE1);
+	gl.bindTexture(gl.TEXTURE_2D, postfxtex);
+	gl.uniform1i(irfprog.inTexCurrent, 1);
+	gl.uniform1f(irfprog.a, 0.97);
+  gl.uniform1f(irfprog.ar, aspect);
+	
+  gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
+	gl.viewport(0, 0, ppw, pph);
+	gl.vertexAttribPointer(pingpongProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER THE RESULT
+
+  //render to screen
 
 	gl.useProgram(postproc);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, postfxtex);
+	gl.bindTexture(gl.TEXTURE_2D, irfs ? irf1 : irf2);
 	gl.uniform1i(postproc.inTex, 0);
 	//gl.bindTexture(gl.TEXTURE_2D, null);
 
@@ -220,6 +279,7 @@ function drawScene() {
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER TO SCREEN
 
 	pps = !pps; //RENDER THE
+	irfs = !irfs;
 }
 
 function webGLStart() {
@@ -228,7 +288,7 @@ function webGLStart() {
 	initBuffers();
 
 	gl.clearColor(.5, 0.0, 0.0, 1.0);
-	setInterval(restart, 60000);
+	//setInterval(restart, 60000);
 	drawScene();
 }
 
@@ -245,8 +305,10 @@ var resize = function () {
 };
 window.onresize = resize;
 
+window.onkeypress = (e) => {if(e.key == "r")restart();};
+
 window.onwheel = function (e) {
-	zoomtarget += (e.deltaY * .01);
+	zoomtarget += (e.deltaY * .01 * zoomtarget);
 	zoomtarget = Math.min(Math.max(0.8, zoomtarget), 20);
 };
 var lastx = 0;
@@ -260,6 +322,7 @@ window.onmousemove = function (e) {
 	lasty = e.clientY;
 };
 var restart = function () {
+  fill();
 	gl.bindTexture(gl.TEXTURE_2D, pp1);
 	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
 	gl.bindTexture(gl.TEXTURE_2D, pp2);

@@ -17,19 +17,20 @@ vec3 weighted_av(vec4 c, vec3 w){
 }
 
 void main() {
-  vec3 res = vec3(0.0);
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.02)), vec3(0.9, 0.0, 0.2));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.018)), vec3(.9, 0.2, 0.0));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.016)), vec3(.7, 0.3, 0.0));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.014)), vec3(.5, 0.5, 0.0));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.012)), vec3(.4, 0.6, 0.2));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.010)), vec3(.6, 0.8, 0.6));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.008)), vec3(0.2, 0.6, 0.4));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.006)), vec3(0.0, 0.5, 0.5));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.004)), vec3(0.0, 0.3, 0.7));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.002)), vec3(0.0, 0.2, 0.9));
-  res += weighted_av(texture2D(inTex, distort(vUv, 1.)), vec3(0.2, 0.0, .90));
-  
-	res /= 4.0;
+  vec3 res = texture2D(inTex, vUv).rgb;
+  res *= 12.0;
+  res += texture2D(inTex, vUv + vec2(0.004, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(-0.004, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(0.008, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(-0.008, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(0.012, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(-0.012, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(0.002, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(-0.002, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(0.006, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(-0.006, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(0.010, 0.0)).rgb;
+  res += texture2D(inTex, vUv + vec2(-0.010, 0.0)).rgb;
+  res /= 24.0;
   gl_FragColor = vec4(res, 1.0);
 }
