@@ -67,8 +67,8 @@ void main() {
 	bool IMAlive = isAlive(me);
 	//gl_FragColor = vec4(aliveNeighbours * .125);
 	if (
-		(j >= 2. && j <= 3. && IMAlive) || 
-		(!IMAlive && j == 3.)){
+		((j == 2. || j == 6.) && IMAlive) || 
+		(!IMAlive && (j == 2. || j == 3.))){
 	//if (isAlive(vUv)){
 		if(IMAlive){
 			j += 1.0;
