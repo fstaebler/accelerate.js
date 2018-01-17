@@ -1,132 +1,165 @@
-var SyncHttpGet = function (path) {
-	var r = new XMLHttpRequest();
-	r.open("GET", path+"?r="+Math.random(), !!0); //prevent caching.
-	r.send();
-	var b = r.responseText;
-	return b;
+pps = irfs = 0;
+
+ppw = pph = 512;
+
+filterA = .96;
+
+zoomtarget = 12;
+zoom = 10;
+deltaxtarget = deltax = 0.25;
+deltaytarget = deltay = 0.5;
+
+mixf = 0.2;
+
+drawScene = () => {
+	zoom = mixf * zoomtarget + (1 - mixf) * zoom;
+	deltax = mixf * deltaxtarget + (1 - mixf) * deltax;
+	deltay = mixf * deltaytarget + (1 - mixf) * deltay;
+	aspect = window.innerWidth / window.innerHeight;
+	//setTimeout(drawScene, 0);
+	requestAnimationFrame(drawScene);
+
+	g.bindFramebuffer(g.FRAMEBUFFER, ppfb);
+	g.useProgram(p);
+	g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, (pps ? pp1 : pp2), 0);
+	g.activeTexture(g.TEXTURE0);
+	g.bindTexture(g.TEXTURE_2D, pps ? pp2 : pp1);
+	g.uniform1i(p.inTex, 0);
+	g.uniform1f(p.h, pph);
+	g.uniform1f(p.w, ppw);
+	//g.bindTexture(g.TEXTURE_2D, null);postfxtex
+
+	g.bindBuffer(g.ARRAY_BUFFER, dummyBuffer);
+	g.viewport(0, 0, ppw, pph);
+	g.vertexAttribPointer(p.vertexPositionAttribute, 3, g.FLOAT, 0, 0, 0);
+	g.drawArrays(g.TRIANGLE_STRIP, 0, 4); //RENDER THE PINGPONG
+	/*Done Ping-Pong'ing*/
+	
+	
+	g.useProgram(t);
+	g.bindFramebuffer(g.FRAMEBUFFER, postfxfb);
+	g.activeTexture(g.TEXTURE0);
+	g.bindTexture(g.TEXTURE_2D, pps ? pp2 : pp1);
+	g.uniform1i(t.inTex, 0);
+	g.activeTexture(g.TEXTURE1);
+	g.bindTexture(g.TEXTURE_2D, colormaptex);
+	g.uniform1i(t.colormap, 1);
+	g.uniform1f(t.rampY, (Date.now() / (30000 * colormaps.length) ) % 1);
+	g.uniformMatrix3fv(t.projection, 0, [aspect / zoom, 0, deltax * aspect, 0, 1 / zoom, deltay, 0, 0, 1]);
+	//g.bindTexture(g.TEXTURE_2D, null);
+
+	g.bindBuffer(g.ARRAY_BUFFER, dummyBuffer);
+	g.viewport(0, 0, ppw, pph);
+	g.vertexAttribPointer(p.vertexPositionAttribute, 3, g.FLOAT, 0, 0, 0);
+	g.drawArrays(g.TRIANGLE_STRIP, 0, 4); //RENDER THE RESULT
+	
+	//render ir filter
+	
+	g.useProgram(f);
+	g.bindFramebuffer(g.FRAMEBUFFER, irffb);
+	g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, (irfs ? irf1 : irf2), 0);
+	g.activeTexture(g.TEXTURE0);
+	g.bindTexture(g.TEXTURE_2D, irfs ? irf2 : irf1);
+	g.uniform1i(f.inTexLast, 0);
+	g.activeTexture(g.TEXTURE1);
+	g.bindTexture(g.TEXTURE_2D, postfxtex);
+	g.uniform1i(f.inTexCurrent, 1);
+	g.uniform1f(f.a, filterA);
+  g.uniform1f(f.ar, aspect);
+	
+  g.bindBuffer(g.ARRAY_BUFFER, dummyBuffer);
+	g.viewport(0, 0, ppw, pph);
+	g.vertexAttribPointer(p.vertexPositionAttribute, 3, g.FLOAT, 0, 0, 0);
+	g.drawArrays(g.TRIANGLE_STRIP, 0, 4); //RENDER THE RESULT
+
+  //render to screen
+
+	g.useProgram(postproc);
+	g.bindFramebuffer(g.FRAMEBUFFER, null);
+	g.activeTexture(g.TEXTURE0);
+	g.bindTexture(g.TEXTURE_2D, irfs ? irf1 : irf2);
+	g.uniform1i(postproc.inTex, 0);
+	//g.bindTexture(g.TEXTURE_2D, null);
+
+	g.bindBuffer(g.ARRAY_BUFFER, dummyBuffer);
+	g.viewport(0, 0, window.innerWidth, window.innerHeight);
+	g.vertexAttribPointer(p.vertexPositionAttribute, 3, g.FLOAT, 0, 0, 0);
+	g.drawArrays(g.TRIANGLE_STRIP, 0, 4); //RENDER TO SCREEN
+
+	pps = !pps; //RENDER THE
+	irfs = !irfs;
 };
 
+j = () => {
+	_c = document.getElementsByTagName("canvas")[0];
+	_c.height = window.innerHeight;
+	_c.width = window.innerWidth;
+	g = _c.getContext("webgl");
+	
+  var fragmentShader = g.createShader(g.FRAGMENT_SHADER);
+	g.shaderSource(fragmentShader, SyncHttpGet("shaders/fragment.glsl"));
+	g.compileShader(fragmentShader);
+	var fragmentShader2 = g.createShader(g.FRAGMENT_SHADER);
+	g.shaderSource(fragmentShader2, SyncHttpGet("shaders/display.glsl"));
+	g.compileShader(fragmentShader2);
+	var fragmentShader3 = g.createShader(g.FRAGMENT_SHADER);
+	g.shaderSource(fragmentShader3, SyncHttpGet("shaders/postfx.glsl"));
+	g.compileShader(fragmentShader3);
+	var irfshader = g.createShader(g.FRAGMENT_SHADER);
+	g.shaderSource(irfshader, SyncHttpGet("shaders/irf.glsl"));
+	g.compileShader(irfshader);
+	var vertexShader = g.createShader(g.VERTEX_SHADER);
+	g.shaderSource(vertexShader, SyncHttpGet("shaders/vertex.glsl"));
+	g.compileShader(vertexShader);
+	
+	p = g.createProgram();
+	t = g.createProgram();
+	postproc = g.createProgram();
+	f = g.createProgram();
+	g.attachShader(f, vertexShader);
+	g.attachShader(f, irfshader);
+	g.attachShader(p, vertexShader);
+	g.attachShader(t, vertexShader);
+	g.attachShader(postproc, vertexShader);
+	g.attachShader(p, fragmentShader);
+	g.attachShader(t, fragmentShader2);
+	g.attachShader(postproc, fragmentShader3);
+	g.linkProgram(p);
+	g.linkProgram(t);
+	g.linkProgram(postproc);
+  g.linkProgram(f);
 
-var gl;
-
-var ppt1;
-var ppt2;
-var pps = false;
-var irfs = false;
-var pph;
-var ppw = pph = 2048;
-var ppfb;
-var ppdb;
-var filterA = .96;
-
-var zoomtarget = 12;
-var zoom = 10;
-var deltaxtarget = 0.25;
-var deltax = 0.25;
-var deltaytarget = 0.5;
-var deltay = 0.5;
-
-var postfxtex;
-var postfxfb;
-
-var createContext = function () {
-	var _canvas = document.getElementsByTagName("canvas")[0];
-	_canvas.height = window.innerHeight;
-	_canvas.width = window.innerWidth;
-	if (!(gl = _canvas.getContext("experimental-webgl") || _canvas.getContext("webgl"))) {
-		console.error("failed.");
-	}
-};
-
-var compileShader = function (source, fragment) {
-	if (!source) {
-		return null;
-	}
-	var shader;
-	if (fragment) {
-		shader = gl.createShader(gl.FRAGMENT_SHADER);
-	} else {
-		shader = gl.createShader(gl.VERTEX_SHADER);
-	}
-	gl.shaderSource(shader, source);
-	gl.compileShader(shader);
-	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-		console.error(gl.getShaderInfoLog(shader));
-		console.error("failed.");
-		return null;
-	}
-	return shader;
-}
-
-
-var pingpongProgram;
-var postproc;
-var compileShaderPrograms = function () {
-	var vsss = SyncHttpGet("shaders/vertex.glsl");
-	var fragmentShader = compileShader(SyncHttpGet("shaders/fragment.glsl"), !!1);
-	var fragmentShader2 = compileShader(SyncHttpGet("shaders/display.glsl"), !!1);
-	var fragmentShader3 = compileShader(SyncHttpGet("shaders/postfx.glsl"), !!1);
-	var irfshader = compileShader(SyncHttpGet("shaders/irf.glsl"), !!1);
-	var vertexShader = compileShader(vsss, !!0);
-
-	pingpongProgram = gl.createProgram();
-	testProgram2 = gl.createProgram();
-	postproc = gl.createProgram();
-	irfprog = gl.createProgram();
-	gl.attachShader(irfprog, vertexShader);
-	gl.attachShader(irfprog, irfshader);
-	gl.attachShader(pingpongProgram, vertexShader);
-	gl.attachShader(testProgram2, vertexShader);
-	gl.attachShader(postproc, vertexShader);
-	gl.attachShader(pingpongProgram, fragmentShader);
-	gl.attachShader(testProgram2, fragmentShader2);
-	gl.attachShader(postproc, fragmentShader3);
-	gl.linkProgram(pingpongProgram);
-	gl.linkProgram(testProgram2);
-	gl.linkProgram(postproc);
-  gl.linkProgram(irfprog);
-
-	if (!gl.getProgramParameter(pingpongProgram, gl.LINK_STATUS)) {
-		console.error("failed.");
-	}
-
-	gl.useProgram(pingpongProgram);
-	irfprog.inTexLast = gl.getUniformLocation(irfprog, "inTexLast");
-	irfprog.inTexCurrent = gl.getUniformLocation(irfprog, "inTexCurrent");
-  irfprog.a = gl.getUniformLocation(irfprog, "a");
-  irfprog.ar = gl.getUniformLocation(irfprog, "ar");
-	pingpongProgram.vertexPositionAttribute = gl.getAttribLocation(pingpongProgram, "pos");
-	gl.enableVertexAttribArray(pingpongProgram.vertexPositionAttribute);
-	pingpongProgram.inTex = gl.getUniformLocation(pingpongProgram, "inTex");
-	pingpongProgram.h = gl.getUniformLocation(pingpongProgram, "h");
-	pingpongProgram.w = gl.getUniformLocation(pingpongProgram, "w");
-	testProgram2.inTex = gl.getUniformLocation(testProgram2, "inTex");
-	testProgram2.projection = gl.getUniformLocation(testProgram2, "projection");
-	testProgram2.colormap = gl.getUniformLocation(testProgram2, "colorRamp");
-	testProgram2.rampY = gl.getUniformLocation(testProgram2, "rampY");
-	postproc.inTex = gl.getUniformLocation(postproc, "inTex");
-};
-
-var VertexPositionBuffer;
-
-function initBuffers() {
-	dummyBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
-	vertices = [
+	f.inTexLast = g.getUniformLocation(f, "inTexLast");
+	f.inTexCurrent = g.getUniformLocation(f, "inTexCurrent");
+  f.a = g.getUniformLocation(f, "a");
+  f.ar = g.getUniformLocation(f, "ar");
+	p.vertexPositionAttribute = g.getAttribLocation(p, "pos");
+	g.enableVertexAttribArray(p.vertexPositionAttribute);
+	p.inTex = g.getUniformLocation(p, "inTex");
+	p.h = g.getUniformLocation(p, "h");
+	p.w = g.getUniformLocation(p, "w");
+	t.inTex = g.getUniformLocation(t, "inTex");
+	t.projection = g.getUniformLocation(t, "projection");
+	t.colormap = g.getUniformLocation(t, "colorRamp");
+	t.rampY = g.getUniformLocation(t, "rampY");
+	postproc.inTex = g.getUniformLocation(postproc, "inTex");
+	
+	dummyBuffer = g.createBuffer();
+	g.bindBuffer(g.ARRAY_BUFFER, dummyBuffer);
+	g.bufferData(g.ARRAY_BUFFER, new Float32Array([
              1.0, 1.0, 0.0,
             -1.0, 1.0, 0.0,
              1.0, -1.0, 0.0,
             -1.0, -1.0, 0.0
-        ];
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        ]), g.STATIC_DRAW);
 
 
 	tb = new Uint8Array(ppw * pph * 4);
 	
 	fill = () => {
-	  bs = 1024
-	  for(var y = (pph - bs) / 2; y < (pph - bs) / 2 + bs; y += 1){
-	    for (var x = (ppw - bs) / 2; x < (ppw - bs) / 2 + bs; x += 1) {
+	  bs = 512;
+	  for(var y = (pph - bs) / 2; (pph - bs) / 2 + bs  > y; y += 1){
+	    for (var x = (ppw - bs) / 2; (ppw - bs) / 2 + bs > x; x += 1) {
 	      var i = (y * ppw + x) * 4;
 		    tb[i] = Math.random() * 255;
 		    tb[i + 1] = Math.random() * 255;
@@ -139,262 +172,164 @@ function initBuffers() {
 	
 	colormaps = [
 	(x) => {
-	  x *= 6;
-	  x /= 256;
+	  x /= 256 / 6;
 	  var n = x % 1;
 	  var m = 1 - n;
 	  n *= 255;
 	  m *= 255;
-	  if(x < 1)return [255, n, 0];
-	  if(x < 2)return [m, 255, 0];
-	  if(x < 3)return [0, 255, n];
-	  if(x < 4)return [0, m, 255];
-	  if(x < 5)return [n, 0, 255];
+	  if(1 > x)return [255, n, 0];
+	  if(2 > x)return [m, 255, 0];
+	  if(3 > x)return [0, 255, n];
+	  if(4 > x)return [0, m, 255];
+	  if(5 > x)return [n, 0, 255];
 	  return [255, 0, m];
 	}, (x) => {
-	  if(x % 16 < 8)return[0, 0, 0];
+	  if(8 > x % 16)return[0, 0, 0];
 	  return [255, 255, 255];
 	}, (x) => {
-	  x *= 2 * Math.PI;
-	  x /= 256;
+	  x /= 40.743665;
     var n = Math.sin(x) * 64;
     var m = Math.cos(x) * 64;
 	  return [128 + n, 128 + m, 128];
 	}, (x) => {
-	  if(x > 127)x -= 128;
-	  x *= 6;
-	  x /= 128;
+	  x /= 128 / 6;
 	  var n = x % 1;
 	  var m = 1 - n;
 	  n *= 255;
 	  m *= 255;
-	  if(x < 1)return [255, n, 0];
-	  if(x < 2)return [m, 255, 0];
-	  if(x < 3)return [0, 255, n];
-	  if(x < 4)return [0, m, 255];
-	  if(x < 5)return [n, 0, 255];
+	  x %= 6;
+	  if(1 > x)return [255, n, 0];
+	  if(2 > x)return [m, 255, 0];
+	  if(3 > x)return [0, 255, n];
+	  if(4 > x)return [0, m, 255];
+	  if(5 > x)return [n, 0, 255];
 	  return [255, 0, m];
 	}
-	]
+	];
 	
 	colormapbuf = new Uint8Array(256 * colormaps.length * 4);
-	for(var i = 0; i < colormaps.length; i++){
-	  for(var x = 0; x < 256; x++){
+	for(var i = 0; colormaps.length > i; i++){
+	  for(var x = 0; 256 > x; x++){
 	    _p = (i * 256 + x) * 4;
-	    _c = colormaps[i](x)
-	    colormapbuf[_p] = _c[0]
-	    colormapbuf[_p + 1] = _c[1]
-	    colormapbuf[_p + 2] = _c[2]
-	    colormapbuf[_p + 3] = 255
+	    _c = colormaps[i](x);
+	    colormapbuf[_p] = _c[0];
+	    colormapbuf[_p + 1] = _c[1];
+	    colormapbuf[_p + 2] = _c[2];
+	    colormapbuf[_p + 3] = 255;
 	  }
 	}
 		
 
-  colormaptex = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, colormaptex);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, colormaps.length, 0, gl.RGBA, gl.UNSIGNED_BYTE, colormapbuf);
+  colormaptex = g.createTexture();
+	g.bindTexture(g.TEXTURE_2D, colormaptex);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.REPEAT);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.REPEAT);
+	g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, 256, colormaps.length, 0, g.RGBA, g.UNSIGNED_BYTE, colormapbuf);
 
-	postfxtex = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, postfxtex);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-	//gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
+	postfxtex = g.createTexture();
+	g.bindTexture(g.TEXTURE_2D, postfxtex);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.REPEAT);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.REPEAT);
+	g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, ppw, pph, 0, g.RGBA, g.UNSIGNED_BYTE, null);
+	//g.texSubImage2D(g.TEXTURE_2D, 0, 0, 0, pph, ppw, g.RGBA, g.UNSIGNED_BYTE, tb);
 
-	var postfxrb = gl.createRenderbuffer();
-	gl.bindRenderbuffer(gl.RENDERBUFFER, postfxrb);
-	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, ppw, pph);
+	postfxrb = g.createRenderbuffer();
+	g.bindRenderbuffer(g.RENDERBUFFER, postfxrb);
+	g.renderbufferStorage(g.RENDERBUFFER, g.DEPTH_COMPONENT16, ppw, pph);
 
-	postfxfb = gl.createFramebuffer();
-	gl.bindFramebuffer(gl.FRAMEBUFFER, postfxfb);
-	gl.bindTexture(gl.TEXTURE_2D, postfxtex);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, postfxtex, 0);
-	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, postfxrb);
+	postfxfb = g.createFramebuffer();
+	g.bindFramebuffer(g.FRAMEBUFFER, postfxfb);
+	g.bindTexture(g.TEXTURE_2D, postfxtex);
+	g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, postfxtex, 0);
+	g.framebufferRenderbuffer(g.FRAMEBUFFER, g.DEPTH_ATTACHMENT, g.RENDERBUFFER, postfxrb);
 
-	pp1 = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, pp1);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
+	pp1 = g.createTexture();
+	g.bindTexture(g.TEXTURE_2D, pp1);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.NEAREST);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.NEAREST);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.REPEAT);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.REPEAT);
+	g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, ppw, pph, 0, g.RGBA, g.UNSIGNED_BYTE, null);
+	g.texSubImage2D(g.TEXTURE_2D, 0, 0, 0, pph, ppw, g.RGBA, g.UNSIGNED_BYTE, tb);
 
-	pp2 = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, pp2);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
+	pp2 = g.createTexture();
+	g.bindTexture(g.TEXTURE_2D, pp2);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.NEAREST);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.NEAREST);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.REPEAT);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.REPEAT);
+	g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, ppw, pph, 0, g.RGBA, g.UNSIGNED_BYTE, null);
+	g.texSubImage2D(g.TEXTURE_2D, 0, 0, 0, pph, ppw, g.RGBA, g.UNSIGNED_BYTE, tb);
 	
-	irf1 = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, irf1);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	irf1 = g.createTexture();
+	g.bindTexture(g.TEXTURE_2D, irf1);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
+	g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, ppw, pph, 0, g.RGBA, g.UNSIGNED_BYTE, null);
 	
-	irf2 = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, irf2);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ppw, pph, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	irf2 = g.createTexture();
+	g.bindTexture(g.TEXTURE_2D, irf2);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE);
+	g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
+	g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, ppw, pph, 0, g.RGBA, g.UNSIGNED_BYTE, null);
 	
-	ppdb = gl.createRenderbuffer();
-	gl.bindRenderbuffer(gl.RENDERBUFFER, ppdb);
-	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, ppw, pph);
+	ppdb = g.createRenderbuffer();
+	g.bindRenderbuffer(g.RENDERBUFFER, ppdb);
+	g.renderbufferStorage(g.RENDERBUFFER, g.DEPTH_COMPONENT16, ppw, pph);
 
-  irffb = gl.createFramebuffer();
-	gl.bindFramebuffer(gl.FRAMEBUFFER, irffb);
-	gl.bindTexture(gl.TEXTURE_2D, irfs ? irf1 : irf2);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, (irfs ? irf1 : irf2), 0);
-	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, ppdb);
-	gl.bindTexture(gl.TEXTURE_2D, null);
+  irffb = g.createFramebuffer();
+	g.bindFramebuffer(g.FRAMEBUFFER, irffb);
+	g.bindTexture(g.TEXTURE_2D, irfs ? irf1 : irf2);
+	g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, (irfs ? irf1 : irf2), 0);
+	g.framebufferRenderbuffer(g.FRAMEBUFFER, g.DEPTH_ATTACHMENT, g.RENDERBUFFER, ppdb);
+	g.bindTexture(g.TEXTURE_2D, null);
 
-	ppfb = gl.createFramebuffer();
-	gl.bindFramebuffer(gl.FRAMEBUFFER, ppfb);
-	gl.bindTexture(gl.TEXTURE_2D, pps ? pp1 : pp2);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, (pps ? pp1 : pp2), 0);
-	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, ppdb);
-	gl.bindTexture(gl.TEXTURE_2D, null);
-}
+	ppfb = g.createFramebuffer();
+	g.bindFramebuffer(g.FRAMEBUFFER, ppfb);
+	g.bindTexture(g.TEXTURE_2D, pps ? pp1 : pp2);
+	g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, (pps ? pp1 : pp2), 0);
+	g.framebufferRenderbuffer(g.FRAMEBUFFER, g.DEPTH_ATTACHMENT, g.RENDERBUFFER, ppdb);
+	g.bindTexture(g.TEXTURE_2D, null);
 
-var mixf = 0.2;
-
-function drawScene() {
-	zoom = mixf * zoomtarget + (1 - mixf) * zoom;
-	deltax = mixf * deltaxtarget + (1 - mixf) * deltax;
-	deltay = mixf * deltaytarget + (1 - mixf) * deltay;
-	aspect = window.innerWidth / window.innerHeight;
-	//setTimeout(drawScene, 0);
-	requestAnimationFrame(drawScene);
-
-	gl.bindFramebuffer(gl.FRAMEBUFFER, ppfb);
-	gl.useProgram(pingpongProgram);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, (pps ? pp1 : pp2), 0);
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, pps ? pp2 : pp1);
-	gl.uniform1i(pingpongProgram.inTex, 0);
-	gl.uniform1f(pingpongProgram.h, pph);
-	gl.uniform1f(pingpongProgram.w, ppw);
-	//gl.bindTexture(gl.TEXTURE_2D, null);postfxtex
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
-	gl.viewport(0, 0, ppw, pph);
-	gl.vertexAttribPointer(pingpongProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER THE PINGPONG
-	/*Done Ping-Pong'ing*/
-	
-	
-	gl.useProgram(testProgram2);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, postfxfb);
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, pps ? pp2 : pp1);
-	gl.uniform1i(testProgram2.inTex, 0);
-	gl.activeTexture(gl.TEXTURE1);
-	gl.bindTexture(gl.TEXTURE_2D, colormaptex);
-	gl.uniform1i(testProgram2.colormap, 1);
-	gl.uniform1f(testProgram2.rampY, (Date.now() / (30000 * colormaps.length) ) % 1);
-	gl.uniformMatrix3fv(testProgram2.projection, gl.FALSE, [aspect / zoom, 0, deltax * aspect, 0, 1 / zoom, deltay, 0, 0, 1]);
-	//gl.bindTexture(gl.TEXTURE_2D, null);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
-	gl.viewport(0, 0, ppw, pph);
-	gl.vertexAttribPointer(pingpongProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER THE RESULT
-	
-	//render ir filter
-	
-	gl.useProgram(irfprog);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, irffb);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, (irfs ? irf1 : irf2), 0);
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, irfs ? irf2 : irf1);
-	gl.uniform1i(irfprog.inTexLast, 0);
-	gl.activeTexture(gl.TEXTURE1);
-	gl.bindTexture(gl.TEXTURE_2D, postfxtex);
-	gl.uniform1i(irfprog.inTexCurrent, 1);
-	gl.uniform1f(irfprog.a, filterA);
-  gl.uniform1f(irfprog.ar, aspect);
-	
-  gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
-	gl.viewport(0, 0, ppw, pph);
-	gl.vertexAttribPointer(pingpongProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER THE RESULT
-
-  //render to screen
-
-	gl.useProgram(postproc);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, irfs ? irf1 : irf2);
-	gl.uniform1i(postproc.inTex, 0);
-	//gl.bindTexture(gl.TEXTURE_2D, null);
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, dummyBuffer);
-	gl.viewport(0, 0, window.innerWidth, window.innerHeight);
-	gl.vertexAttribPointer(pingpongProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); //RENDER TO SCREEN
-
-	pps = !pps; //RENDER THE
-	irfs = !irfs;
-}
-
-function webGLStart() {
-	createContext();
-	compileShaderPrograms();
-	initBuffers();
-
-	gl.clearColor(.5, 0.0, 0.0, 1.0);
+	g.clearColor(.5, 0.0, 0.0, 1.0);
 	//setInterval(restart, 60000);
 	drawScene();
-}
-
-var initialize = function () {
-	webGLStart();
 };
 
-var resize = function () {
+onresize = () => {
 	var _canvas = document.getElementsByTagName("canvas")[0];
-	_canvas.height = window.innerHeight;
-	_canvas.width = window.innerWidth;
+	_canvas.height = innerHeight;
+	_canvas.width = innerWidth;
 	//drawScene();
 	//drawScene();
 };
-window.onresize = resize;
-
-window.onkeypress = (e) => {if(e.key == "r")restart();};
-
-window.onwheel = function (e) {
+onkeypress = (e) => {if(e.key == "r")restart();};
+onwheel = function (e) {
 	zoomtarget += (e.deltaY * .01 * zoomtarget);
 	zoomtarget = Math.min(Math.max(0.8, zoomtarget), 50);
 };
-var lastx = 0;
-var lasty = 0;
-window.onmousemove = function (e) {
+lastx = lasty = 0;
+onmousemove = (e) => {
 	if (e.buttons & 1) {
-		deltaxtarget += (lastx - e.clientX) / window.innerWidth / zoom;
-		deltaytarget -= (lasty - e.clientY) / window.innerHeight / zoom;
+		deltaxtarget += (lastx - e.clientX) / innerWidth / zoom;
+		deltaytarget -= (lasty - e.clientY) / innerHeight / zoom;
 	}
 	lastx = e.clientX;
 	lasty = e.clientY;
 };
-var restart = function () {
+restart = () => {
   fill();
-	gl.bindTexture(gl.TEXTURE_2D, pp1);
-	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
-	gl.bindTexture(gl.TEXTURE_2D, pp2);
-	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, pph, ppw, gl.RGBA, gl.UNSIGNED_BYTE, tb);
+	g.bindTexture(g.TEXTURE_2D, pp1);
+	g.texSubImage2D(g.TEXTURE_2D, 0, 0, 0, pph, ppw, g.RGBA, g.UNSIGNED_BYTE, tb);
+	g.bindTexture(g.TEXTURE_2D, pp2);
+	g.texSubImage2D(g.TEXTURE_2D, 0, 0, 0, pph, ppw, g.RGBA, g.UNSIGNED_BYTE, tb);
 	console.log("Reset.");
-}
+};
